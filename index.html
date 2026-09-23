@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Birthday Reminder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wine: #A9553A;
+    --wine-deep: #7A3B27;
+    --bg: #FBF3E7;
+    --card: #FFFFFF;
+    --ink: #3A2416;
+    --muted: #8A7462;
+    --gold: #C9A24B;
+    --ok: #4C7A5A;
+    --warn: #C1602E;
+    --line: #ECDFCB;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    font-family:'Jost', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header{
+    padding: 28px 20px 18px;
+    text-align:center;
+  }
+  header h1{
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight:600;
+    font-size: 34px;
+    color: var(--wine);
+    margin:0;
+  }
+  header p{
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+
+  .tabs{
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    margin: 18px 0 8px;
+  }
+  .tab-btn{
+    border:none;
+    background: transparent;
+    color: var(--muted);
+    font-family:'Jost', sans-serif;
+    font-size: 14px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    cursor:pointer;
+    transition: all .2s ease;
+  }
+  .tab-btn.active{
+    background: var(--wine);
+    color: #fff;
+  }
+
+  main{
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 12px 16px 60px;
+  }
+
+  section{ display:none; }
+  section.active{ display:block; }
+
+  .card{
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+  }
+
+  .reminder-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .reminder-head h3{
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 21px;
+    margin: 0;
+    color: var(--wine);
+  }
+  .badge{
+    font-size: 11.5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge.j-soon{ background:#F7E3D3; color: var(--warn); }
+  .badge.j-ok{ background:#E3EEE6; color: var(--ok); }
+  .badge.j-far{ background:#EFE7DA; color: var(--muted); }
+
+  .meta{
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  textarea{
+    width:100%;
+    margin-top: 12px;
+    min-height: 110px;
+    font-family:'Jost', sans-serif;
+    font-size: 14px;
+    line-height:1.55;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #FFFDF9;
+    resize: vertical;
+  }
+
+  .actions{
+    display:flex;
+    gap:8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  button.btn{
+    border:none;
+    border-radius: 7px;
+    padding: 9px 14px;
+    font-family:'Jost', sans-serif;
+    font-size: 13px;
+    cursor:pointer;
+    transition: opacity .15s ease;
+  }
+  button.btn:hover{ opacity:0.85; }
+  button.btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .btn-primary{ background: var(--wine); color:#fff; }
+  .btn-secondary{ background: #F1E6D6; color: var(--ink); }
+  .btn-ghost{ background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .btn-whatsapp{ background: #3FA75C; color: #fff; }
+
+  .empty{
+    text-align:center;
+    color: var(--muted);
+    padding: 40px 20px;
+    font-size: 14px;
+  }
+
+  form.person-form{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+  }
+  form.person-form .full{ grid-column: 1 / -1; }
+  form.person-form label{
+    font-size: 12px;
+    color: var(--muted);
+    display:block;
+    margin-bottom: 4px;
+  }
+  form.person-form input,
+  form.person-form select,
+  form.person-form textarea{
+    width:100%;
+    font-family:'Jost', sans-serif;
+    font-size: 14px;
+    padding: 9px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: #FFFDF9;
+  }
+  form.person-form textarea{ min-height: 70px; resize: vertical; }
+
+  .people-list{
+    margin-top: 18px;
+  }
+  .person-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .person-row:last-child{ border-bottom:none; }
+  .person-row .info b{ color: var(--wine); }
+  .person-row .info span{
+    display:block;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .row-actions{ display:flex; gap:6px; }
+  .row-actions button{
+    background:none;
+    border:none;
+    cursor:pointer;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: underline;
+  }
+
+  .toolbar{
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom: 8px;
+  }
+  .toolbar button{
+    font-size: 12.5px;
+  }
+
+  .toast{
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color:#fff;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  .toast.show{ opacity: 0.95; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Birthday Reminder</h1>
+  <p>Tes proches, leurs anniversaires, un message prêt à envoyer — pas d'oubli.</p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="reminders">À valider</button>
+  <button class="tab-btn" data-tab="people">Mes proches</button>
+</div>
+
+<main>
+  <section id="reminders" class="active">
+    <div class="toolbar">
+      <button class="btn btn-ghost" id="refreshBtn">Vérifier maintenant</button>
+    </div>
+    <div id="remindersList"></div>
+  </section>
+
+  <section id="people">
+    <div class="card">
+      <h3 style="font-family:'Cormorant Garamond', serif; font-style:italic; color:var(--wine); margin-top:0;">Ajouter un proche</h3>
+      <form class="person-form" id="personForm">
+        <div class="full">
+          <label>Nom</label>
+          <input type="text" name="name" required placeholder="Ex : Glecy">
+        </div>
+        <div>
+          <label>Jour</label>
+          <input type="number" name="birth_day" min="1" max="31" required>
+        </div>
+        <div>
+          <label>Mois</label>
+          <select name="birth_month" required>
+            <option value="1">Janvier</option>
+            <option value="2">Février</option>
+            <option value="3">Mars</option>
+            <option value="4">Avril</option>
+            <option value="5">Mai</option>
+            <option value="6">Juin</option>
+            <option value="7">Juillet</option>
+            <option value="8">Août</option>
+            <option value="9">Septembre</option>
+            <option value="10">Octobre</option>
+            <option value="11">Novembre</option>
+            <option value="12">Décembre</option>
+          </select>
+        </div>
+        <div>
+          <label>Relation</label>
+          <input type="text" name="relation" required placeholder="Ex : sœur, ami, collègue">
+        </div>
+        <div>
+          <label>Ton souhaité</label>
+          <select name="tone">
+            <option value="chaleureux">Chaleureux</option>
+            <option value="tres fort et emotionnel">Très fort / émotionnel</option>
+            <option value="leger et fun">Léger et fun</option>
+            <option value="sobre et respectueux">Sobre et respectueux</option>
+          </select>
+        </div>
+        <div class="full">
+          <label>Numéro WhatsApp (avec indicatif, optionnel)</label>
+          <input type="text" name="phone" placeholder="Ex : +14165551234">
+        </div>
+        <div class="full">
+          <label>Contexte / détails personnels (pour un message vraiment personnalisé)</label>
+          <textarea name="context" placeholder="Ex : c'est ma petite sœur, j'ai donné son prénom à ma fille..."></textarea>
+        </div>
+        <div class="full">
+          <button type="submit" class="btn btn-primary">Ajouter</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="people-list" id="peopleList"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
