@@ -1,4 +1,6 @@
-import { db, Person, Reminder, ReminderWithPerson } from "./db";
+import { db, Person, Reminder, ReminderWithPerson, Channel, CHANNELS } from "./db";
+
+const PERSON_COLUMNS = `p.name, p.relation, p.context, p.tone, p.phone, p.channel, p.contact, p.timezone, p.send_hour, p.auto_send`;
 
 // ---------- Personnes ----------
 
@@ -21,12 +23,28 @@ export interface NewPerson {
   context?: string;
   tone?: string;
   phone?: string;
+  channel?: Channel;
+  contact?: string;
+  timezone?: string;
+  send_hour?: number;
+  auto_send?: number;
+}
+
+function cleanChannel(c: unknown): Channel {
+  return CHANNELS.includes(c as Channel) ? (c as Channel) : "whatsapp";
+}
+
+function cleanHour(h: unknown): number {
+  const n = Number(h);
+  return Number.isInteger(n) && n >= 0 && n <= 23 ? n : 9;
 }
 
 export function createPerson(p: NewPerson): Person {
   const stmt = db.prepare(`
-    INSERT INTO people (name, birth_month, birth_day, birth_year, relation, context, tone, phone)
-    VALUES (@name, @birth_month, @birth_day, @birth_year, @relation, @context, @tone, @phone)
+    INSERT INTO people
+      (name, birth_month, birth_day, birth_year, relation, context, tone, phone, channel, contact, timezone, send_hour, auto_send)
+    VALUES
+      (@name, @birth_month, @birth_day, @birth_year, @relation, @context, @tone, @phone, @channel, @contact, @timezone, @send_hour, @auto_send)
   `);
   const info = stmt.run({
     name: p.name,
@@ -37,6 +55,11 @@ export function createPerson(p: NewPerson): Person {
     context: p.context ?? "",
     tone: p.tone ?? "chaleureux",
     phone: p.phone ?? "",
+    channel: cleanChannel(p.channel),
+    contact: p.contact ?? "",
+    timezone: p.timezone ?? "",
+    send_hour: cleanHour(p.send_hour),
+    auto_send: p.auto_send ? 1 : 0,
   });
   return getPerson(Number(info.lastInsertRowid))!;
 }
@@ -44,7 +67,9 @@ export function createPerson(p: NewPerson): Person {
 export function updatePerson(id: number, p: Partial<NewPerson>): Person | undefined {
   const existing = getPerson(id);
   if (!existing) return undefined;
-  const merged = { ...existing, ...p };
+  // On ignore les champs non fournis (undefined) pour ne jamais écraser une valeur existante.
+  const defined = Object.fromEntries(Object.entries(p).filter(([, v]) => v !== undefined));
+  const merged = { ...existing, ...defined } as Person;
   db.prepare(`
     UPDATE people SET
       name = @name,
@@ -54,9 +79,20 @@ export function updatePerson(id: number, p: Partial<NewPerson>): Person | undefi
       relation = @relation,
       context = @context,
       tone = @tone,
-      phone = @phone
+      phone = @phone,
+      channel = @channel,
+      contact = @contact,
+      timezone = @timezone,
+      send_hour = @send_hour,
+      auto_send = @auto_send
     WHERE id = @id
-  `).run({ ...merged, id });
+  `).run({
+    ...merged,
+    channel: cleanChannel(merged.channel),
+    send_hour: cleanHour(merged.send_hour),
+    auto_send: merged.auto_send ? 1 : 0,
+    id,
+  });
   return getPerson(id);
 }
 
@@ -83,13 +119,20 @@ export function createReminder(personId: number, targetDate: string): Reminder {
 
 export function updateReminder(id: number, fields: Partial<Reminder>): void {
   const current = db.prepare(`SELECT * FROM reminders WHERE id = ?`).get(id) as Reminder;
-  const merged = { ...current, ...fields, updated_at: new Date().toISOString() };
+  const defined = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
+  const merged = { ...current, ...defined, updated_at: new Date().toISOString() };
   db.prepare(`
     UPDATE reminders SET
       status = @status,
       draft_message = @draft_message,
       final_message = @final_message,
       last_stage = @last_stage,
+      notified_j14 = @notified_j14,
+      notified_j7 = @notified_j7,
+      notified_d0 = @notified_d0,
+      send_status = @send_status,
+      send_error = @send_error,
+      sent_at = @sent_at,
       updated_at = @updated_at
     WHERE id = @id
   `).run({ ...merged, id });
@@ -98,10 +141,10 @@ export function updateReminder(id: number, fields: Partial<Reminder>): void {
 export function listActiveReminders(): ReminderWithPerson[] {
   return db
     .prepare(`
-      SELECT r.*, p.name, p.relation, p.context, p.tone, p.phone
+      SELECT r.*, ${PERSON_COLUMNS}
       FROM reminders r
       JOIN people p ON p.id = r.person_id
-      WHERE r.status != 'envoye' AND r.status != 'ignore'
+      WHERE r.status != 'envoye' AND r.status != 'ignore' AND p.archived = 0
       ORDER BY r.target_date ASC
     `)
     .all() as ReminderWithPerson[];
@@ -110,7 +153,7 @@ export function listActiveReminders(): ReminderWithPerson[] {
 export function listAllReminders(): ReminderWithPerson[] {
   return db
     .prepare(`
-      SELECT r.*, p.name, p.relation, p.context, p.tone, p.phone
+      SELECT r.*, ${PERSON_COLUMNS}
       FROM reminders r
       JOIN people p ON p.id = r.person_id
       ORDER BY r.target_date DESC
@@ -118,10 +161,21 @@ export function listAllReminders(): ReminderWithPerson[] {
     .all() as ReminderWithPerson[];
 }
 
+export function listPendingReminders(): ReminderWithPerson[] {
+  return db
+    .prepare(`
+      SELECT r.*, ${PERSON_COLUMNS}
+      FROM reminders r
+      JOIN people p ON p.id = r.person_id
+      WHERE r.status NOT IN ('envoye', 'ignore') AND p.archived = 0
+    `)
+    .all() as ReminderWithPerson[];
+}
+
 export function getReminderWithPerson(id: number): ReminderWithPerson | undefined {
   return db
     .prepare(`
-      SELECT r.*, p.name, p.relation, p.context, p.tone, p.phone
+      SELECT r.*, ${PERSON_COLUMNS}
       FROM reminders r
       JOIN people p ON p.id = r.person_id
       WHERE r.id = ?

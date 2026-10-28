@@ -1,15 +1,23 @@
 import https from "https";
 import { Person } from "./db";
 
+type DraftInput = Pick<Person, "name" | "relation" | "context" | "tone"> & { channel?: string };
+
 const MY_NAME = process.env.MY_NAME?.trim() || "";
 const API_KEY = process.env.ANTHROPIC_API_KEY?.trim() || "";
+
+function lengthHint(channel?: string): string {
+  if (channel === "sms") return "Longueur : 2 à 4 phrases, c'est un SMS.";
+  if (channel === "email") return "Longueur : 4 à 8 phrases, c'est un email personnel (sans objet ni formule d'en-tête).";
+  return "Longueur : 3 à 8 phrases, adaptée à un message de messagerie (pas une lettre).";
+}
 
 /**
  * Génère un brouillon de message d'anniversaire personnalisé.
  * Utilise l'API Claude si une clé est configurée, sinon retombe sur un
  * template local (toujours fonctionnel, moins riche).
  */
-export async function generateBirthdayDraft(person: Pick<Person, "name" | "relation" | "context" | "tone">): Promise<string> {
+export async function generateBirthdayDraft(person: DraftInput): Promise<string> {
   if (API_KEY) {
     try {
       return await generateWithClaude(person);
@@ -21,10 +29,10 @@ export async function generateBirthdayDraft(person: Pick<Person, "name" | "relat
   return generateWithTemplate(person);
 }
 
-function generateWithClaude(person: Pick<Person, "name" | "relation" | "context" | "tone">): Promise<string> {
+function generateWithClaude(person: DraftInput): Promise<string> {
   const signature = MY_NAME ? `Signe le message avec le prénom "${MY_NAME}".` : "Ne mets pas de signature explicite.";
 
-  const prompt = `Tu écris un message d'anniversaire en français, à envoyer sur WhatsApp à un(e) proche.
+  const prompt = `Tu écris un message d'anniversaire en français, à envoyer à un(e) proche.
 
 Destinataire : ${person.name}
 Relation avec l'expéditeur : ${person.relation}
@@ -33,13 +41,13 @@ Ton souhaité : ${person.tone}
 
 Consignes :
 - Écris un message chaleureux, sincère, pas générique, qui utilise si possible le contexte donné.
-- Longueur : 3 à 8 phrases, adaptée à un message WhatsApp (pas une lettre).
+- ${lengthHint(person.channel)}
 - Pas de balises, pas de guillemets autour du message, juste le texte du message tel qu'il sera envoyé.
 - ${signature}
 - Ne commence pas par "Cher/Chère", préfère une entrée en matière plus naturelle et directe.`;
 
   const payload = JSON.stringify({
-    model: "claude-sonnet-4-5",
+    model: process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-5",
     max_tokens: 500,
     messages: [{ role: "user", content: prompt }],
   });
@@ -84,7 +92,7 @@ Consignes :
   });
 }
 
-function generateWithTemplate(person: Pick<Person, "name" | "relation" | "context" | "tone">): string {
+function generateWithTemplate(person: DraftInput): string {
   const firstName = person.name.split(" ")[0];
   const context = person.context ? ` ${person.context.trim()}` : "";
   const signature = MY_NAME ? `\n\n${MY_NAME}` : "";
